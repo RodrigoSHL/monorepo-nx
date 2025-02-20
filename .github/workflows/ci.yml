@@ -11,94 +11,29 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: 🛠️ Setup & Identify Affected
+  main:
     runs-on: ubuntu-latest
-    outputs:
-      affected_projects: ${{ steps.get-affected.outputs.affected }}
     steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
+      # This enables task distribution via Nx Cloud
+      # Run this command as early as possible, before dependencies are installed
+      # Learn more at https://nx.dev/ci/reference/nx-cloud-cli#npx-nxcloud-startcirun
+      # Uncomment this line to enable task distribution
+      # - run: npx nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
+
+      # Cache node_modules
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
-      - name: 📦 Install dependencies
-        run: npm ci --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps
+      - uses: nrwl/nx-set-shas@v4
 
-      - name: 🔍 Set Nx SHAs
-        uses: nrwl/nx-set-shas@v4
-
-      - name: 🔎 Identify affected projects
-        id: get-affected
-        run: |
-          echo "🔎 Buscando proyectos afectados..."
-          AFFECTED_PROJECTS=$(npx nx show projects --affected --json | jq -c '.')
-
-          if [[ "$AFFECTED_PROJECTS" == "[]" ]]; then
-            echo "✅ No hay proyectos afectados en este cambio."
-            echo "affected=" > $GITHUB_OUTPUT
-          else
-            echo "🚀 Proyectos afectados: $AFFECTED_PROJECTS"
-            echo "affected=$AFFECTED_PROJECTS" >> $GITHUB_OUTPUT
-          fi
-
-  lint-test:
-    name: 🧪 Lint & Test
-    needs: setup
-    runs-on: ubuntu-latest
-    if: needs.setup.outputs.affected != ''
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: 📦 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 🧹 Run Lint
-        run: |
-          echo "🧹 Ejecutando lint..."
-          npx nx affected -t lint
-
-      - name: 🛠️ Run Tests
-        run: |
-          echo "🛠️ Ejecutando pruebas..."
-          npx nx affected -t test
-
-  build:
-    name: 🏗️ Build Projects
-    needs: setup
-    runs-on: ubuntu-latest
-    if: needs.setup.outputs.affected != ''
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: 📦 Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: 🏗️ Build affected projects
-        run: |
-          echo "🏗️ Construyendo proyectos..."
-          npx nx affected -t build
+      # Prepend any command with "nx-cloud record --" to record its logs to Nx Cloud
+      # - run: npx nx-cloud record -- echo Hello World
+      # Nx Affected runs only tasks affected by the changes in this PR/commit. Learn more: https://nx.dev/ci/features/affected
+      - run: npx nx affected -t lint test build
