@@ -7,6 +7,6 @@ export class AppService {
   }
 
   getDato(): { message: string } {
-    return { message: 'Hello API' };
+    return { message: 'Hello API dato' };
   }
 }
