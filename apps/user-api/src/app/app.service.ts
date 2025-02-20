@@ -5,8 +5,4 @@ export class AppService {
   getData(): { message: string } {
     return { message: 'Hello API' };
   }
-
-  getDato(): { message: string } {
-    return { message: 'Hello API dato' };
-  }
 }
