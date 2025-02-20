@@ -11,8 +11,11 @@ permissions:
   contents: read
 
 jobs:
-  main:
+  setup:
+    name: 🛠️ Setup & Identify Affected
     runs-on: ubuntu-latest
+    outputs:
+      affected_projects: ${{ steps.get-affected.outputs.affected }}
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
@@ -31,34 +34,71 @@ jobs:
       - name: 🔍 Set Nx SHAs
         uses: nrwl/nx-set-shas@v4
 
-      - name: 📝 Identify affected projects
+      - name: 🔎 Identify affected projects
+        id: get-affected
         run: |
           echo "🔎 Buscando proyectos afectados..."
-          AFFECTED_PROJECTS=$(npx nx show projects --affected --json | jq -r '.[]')
+          AFFECTED_PROJECTS=$(npx nx show projects --affected --json | jq -c '.')
 
-          if [[ -z "$AFFECTED_PROJECTS" ]]; then
+          if [[ "$AFFECTED_PROJECTS" == "[]" ]]; then
             echo "✅ No hay proyectos afectados en este cambio."
-            echo "🛑 Finalizando pipeline."
-            exit 0
+            echo "affected=" > $GITHUB_OUTPUT
           else
-            echo "🚀 Proyectos afectados:"
-            echo "$AFFECTED_PROJECTS"
+            echo "🚀 Proyectos afectados: $AFFECTED_PROJECTS"
+            echo "affected=$AFFECTED_PROJECTS" >> $GITHUB_OUTPUT
           fi
 
-      - name: 🎨 Run lint on affected projects
-        if: success()
+  lint-test:
+    name: 🧪 Lint & Test
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.affected != ''
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: 🧹 Run Lint
         run: |
           echo "🧹 Ejecutando lint..."
           npx nx affected -t lint
 
-      - name: 🧪 Run tests on affected projects
-        if: success()
+      - name: 🛠️ Run Tests
         run: |
           echo "🛠️ Ejecutando pruebas..."
           npx nx affected -t test
 
+  build:
+    name: 🏗️ Build Projects
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.affected != ''
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci --legacy-peer-deps
+
       - name: 🏗️ Build affected projects
-        if: success()
         run: |
           echo "🏗️ Construyendo proyectos..."
           npx nx affected -t build
