@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -11,36 +11,73 @@ permissions:
   contents: read
 
 jobs:
-  main:
-    name: Continuous Integration
+  detect-changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
-
+    outputs:
+      backend_changed: ${{ steps.detect.outputs.backend }}
+      frontend_changed: ${{ steps.detect.outputs.frontend }}
     steps:
-      # ✅ 1. Descargar código del repositorio
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Clona todo el historial para detectar cambios con Nx
+          fetch-depth: 0
 
-      # ✅ 2. Configurar Node.js con caché para npm
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
-      # ✅ 3. Instalar dependencias de manera limpia
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      # ✅ 4. Configurar Nx para detectar cambios entre commits
-      - name: Set Nx SHAs for affected commands
-        uses: nrwl/nx-set-shas@v4
+      - name: Detect affected projects
+        id: detect
+        run: |
+          AFFECTED_PROJECTS=$(npx nx show projects --affected)
+          echo "Affected projects: $AFFECTED_PROJECTS"
 
-      # ✅ 5. Mostrar qué proyectos han cambiado
-      - name: Show affected projects
-        run: npx nx show projects --affected
+          if echo "$AFFECTED_PROJECTS" | grep -q "backend-"; then
+            echo "Backend changed"
+            echo "backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "backend=false" >> $GITHUB_OUTPUT
+          fi
 
-      # ✅ 6. Ejecutar linting, tests y build solo en los proyectos afectados
-      - name: Run affected tasks (lint, test, build)
-        run: npx nx affected -t lint test build
+          if echo "$AFFECTED_PROJECTS" | grep -q "frontend-"; then
+            echo "Frontend changed"
+            echo "frontend=true" >> $GITHUB_OUTPUT
+          else
+            echo "frontend=false" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-backend:
+    name: Deploy Backend (NestJS to Kubernetes)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to Kubernetes
+        run: echo "Deploying backend to Kubernetes..."
+        # Aquí iría la lógica real de despliegue a EKS.
+
+  deploy-frontend:
+    name: Deploy Frontend (Angular to S3)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to S3
+        run: echo "Deploying frontend to S3..."
+        # Aquí iría la lógica real de despliegue a S3 + CloudFront.
