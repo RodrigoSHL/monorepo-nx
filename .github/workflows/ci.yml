@@ -41,7 +41,7 @@ jobs:
       - name: Show affected projects
         run: npx nx show projects --affected
 
-      - nname: Show affected projects (graph)
+      - name: Show affected projects (graph)
         run: npx nx affected --graph -t build
 
       - name: Show affected projects (detailed)
