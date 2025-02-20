@@ -41,12 +41,6 @@ jobs:
       - name: Show affected projects
         run: npx nx show projects --affected
 
-      - name: Show affected projects (graph)
-        run: npx nx affected --graph -t build
-
-      - name: Show affected projects (detailed)
-        run: npx nx graph --affected
-
       # ✅ 6. Ejecutar linting, tests y build solo en los proyectos afectados
       - name: Run affected tasks (lint, test, build)
         run: npx nx affected -t lint test build
