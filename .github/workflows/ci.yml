@@ -39,7 +39,13 @@ jobs:
 
       # ✅ 5. Mostrar qué proyectos han cambiado
       - name: Show affected projects
-        run: npx nx print-affected --base=origin/main --head=HEAD
+        run: npx nx show projects --affected
+
+      - nname: Show affected projects (graph)
+        run: npx nx affected --graph -t build
+
+      - name: Show affected projects (detailed)
+        run: npx nx graph --affected
 
       # ✅ 6. Ejecutar linting, tests y build solo en los proyectos afectados
       - name: Run affected tasks (lint, test, build)
