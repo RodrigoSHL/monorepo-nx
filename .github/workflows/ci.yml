@@ -31,11 +31,24 @@ jobs:
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v4
 
-      # 🔹 OBTENER Y MOSTRAR LOS PROYECTOS AFECTADOS
+      # 🔹 Verificar qué commits está usando Nx como referencia
+      - name: Debug Nx Affected Base & Head
+        run: |
+          echo "🔍 Base SHA: $NX_BASE"
+          echo "🔍 Head SHA: $NX_HEAD"
+
+      # 🔹 Establecer manualmente el SHA base si es necesario
+      - name: Determine base commit
+        run: |
+          BASE_SHA=$(git merge-base origin/main HEAD)
+          echo "🔍 Comparando cambios desde $BASE_SHA hasta HEAD"
+          echo "NX_BASE=$BASE_SHA" >> $GITHUB_ENV
+
+      # 🔹 Mostrar los proyectos realmente afectados
       - name: Show affected projects
         run: |
-          echo "🔍 Identificando proyectos afectados..."
-          AFFECTED_PROJECTS=$(npx nx show projects --affected --json | jq -r '.[]')
+          AFFECTED_PROJECTS=$(npx nx show projects --affected --base=$NX_BASE --head=HEAD)
+          
           if [[ -z "$AFFECTED_PROJECTS" ]]; then
             echo "✅ No hay proyectos afectados en este cambio."
             exit 0
@@ -44,9 +57,9 @@ jobs:
             echo "$AFFECTED_PROJECTS"
           fi
 
-      # 🔹 EJECUTAR SOLO SI HAY PROYECTOS AFECTADOS
+      # 🔹 Ejecutar Nx solo si hay proyectos afectados
       - name: Run affected tasks (lint, test, build)
         if: success()
         run: |
           echo "⚡ Ejecutando tareas en proyectos afectados..."
-          npx nx affected -t lint test build
+          npx nx affected -t lint test build --base=$NX_BASE --head=HEAD
