@@ -38,19 +38,29 @@ jobs:
           AFFECTED_PROJECTS=$(npx nx show projects --affected)
           echo "Affected projects: $AFFECTED_PROJECTS"
 
-          if echo "$AFFECTED_PROJECTS" | grep -q "backend-"; then
-            echo "Backend changed"
-            echo "backend=true" >> $GITHUB_OUTPUT
-          else
-            echo "backend=false" >> $GITHUB_OUTPUT
-          fi
+          BACKEND_CHANGED=false
+          FRONTEND_CHANGED=false
 
-          if echo "$AFFECTED_PROJECTS" | grep -q "frontend-"; then
-            echo "Frontend changed"
-            echo "frontend=true" >> $GITHUB_OUTPUT
-          else
-            echo "frontend=false" >> $GITHUB_OUTPUT
-          fi
+          for PROJECT in $AFFECTED_PROJECTS; do
+            # Buscar si es un backend (NestJS)
+            if [ -f "$PROJECT/project.json" ]; then
+              if grep -q "@nrwl/nest" "$PROJECT/project.json" || grep -q "@nestjs/core" "$PROJECT/project.json"; then
+                echo "Proyecto Backend detectado: $PROJECT"
+                BACKEND_CHANGED=true
+              fi
+            fi
+
+            # Buscar si es un frontend (Angular)
+            if [ -f "$PROJECT/project.json" ]; then
+              if grep -q "@nrwl/angular" "$PROJECT/project.json" || grep -q "@angular/core" "$PROJECT/project.json"; then
+                echo "Proyecto Frontend detectado: $PROJECT"
+                FRONTEND_CHANGED=true
+              fi
+            fi
+          done
+
+          echo "backend=$BACKEND_CHANGED" >> $GITHUB_OUTPUT
+          echo "frontend=$FRONTEND_CHANGED" >> $GITHUB_OUTPUT
 
   deploy-backend:
     name: Deploy Backend (NestJS to Kubernetes)
